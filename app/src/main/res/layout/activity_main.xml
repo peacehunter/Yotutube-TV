@@ -7,8 +7,8 @@
     android:background="#000000"
     tools:context=".MainActivity">
 
-    <WebView
-        android:id="@+id/webView"
+    <org.mozilla.geckoview.GeckoView
+        android:id="@+id/geckoview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"

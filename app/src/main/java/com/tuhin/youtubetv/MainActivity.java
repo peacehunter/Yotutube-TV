@@ -1,137 +1,84 @@
 package com.tuhin.youtubetv;
 
-import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.mozilla.geckoview.GeckoRuntime;
+import org.mozilla.geckoview.GeckoSession;
+import org.mozilla.geckoview.GeckoSessionSettings;
+import org.mozilla.geckoview.GeckoView;
 
 public class MainActivity extends AppCompatActivity {
 
-    private WebView webView;
+    private GeckoView geckoView;
+    private GeckoSession geckoSession;
+    private static GeckoRuntime sRuntime;
 
-    // Exact User-Agent from working APK
-    private static final String USER_AGENT = "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeTVAds Safari/538.1";
+    // Modern WebOS User-Agent for best compatibility with YouTube TV
+    private static final String TV_USER_AGENT = "Mozilla/5.0 (WebOS; SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36";
 
-    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        webView = findViewById(R.id.webView);
-        android.util.Log.d("YouTubeTV", "WebView initialized");
-        
-        // Force Hardware Acceleration for video playback
-        webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
-        webView.setBackgroundColor(android.graphics.Color.BLACK);
+        geckoView = findViewById(R.id.geckoview);
 
-        // Enable Cookies
-        android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
-        cookieManager.setAcceptCookie(true);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            cookieManager.setAcceptThirdPartyCookies(webView, true);
+        // Initialize GeckoRuntime if not already done
+        if (sRuntime == null) {
+            sRuntime = GeckoRuntime.create(this);
         }
 
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setMediaPlaybackRequiresUserGesture(false);
-        webSettings.setUserAgentString(USER_AGENT);
+        // Configure session settings
+        GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
+                .usePrivateMode(false)
+                .useTrackingProtection(false)
+                .userAgentOverride(TV_USER_AGENT)
+                .userAgentMode(GeckoSessionSettings.USER_AGENT_MODE_MOBILE) // Use override
+                .build();
 
-        // Improve performance and compatibility
-        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webSettings.setDatabaseEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setUseWideViewPort(true);
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setSupportMultipleWindows(true);
-        webSettings.setBuiltInZoomControls(false);
-        webSettings.setDisplayZoomControls(false);
+        geckoSession = new GeckoSession(settings);
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        }
+        // Basic session setup
+        geckoSession.open(sRuntime);
+        geckoView.setSession(geckoSession);
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            webSettings.setSafeBrowsingEnabled(false);
-        }
+        // Load YouTube TV
+        geckoSession.loadUri("https://www.youtube.com/tv");
         
-        webView.setWebChromeClient(new WebChromeClient());
-        
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                android.util.Log.d("YouTubeTV", "Page started: " + url);
-                super.onPageStarted(view, url, favicon);
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                android.util.Log.d("YouTubeTV", "Page finished: " + url);
-                super.onPageFinished(view, url);
-            }
-
-            @Override
-            public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    android.util.Log.e("YouTubeTV", "Error: " + error.getDescription() + " code: " + error.getErrorCode());
-                }
-                super.onReceivedError(view, request, error);
-            }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Google blocks sign-ins from WebViews.
-                // If we detect a login URL, temporarily switch to a standard desktop Chrome User-Agent
-                if (url.contains("accounts.google.com")) {
-                    view.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-                } else if (url.contains("youtube.com/tv")) {
-                    // Revert to Smart TV User-Agent when returning to the TV interface
-                    view.getSettings().setUserAgentString(USER_AGENT);
-                }
-                
-                view.loadUrl(url);
-                return true;
-            }
-        });
-
-        // Load YouTube TV interface
-        android.util.Log.d("YouTubeTV", "Loading URL: https://www.youtube.com/tv");
-        webView.loadUrl("https://www.youtube.com/tv");
-        
-        // Request focus to ensure the TV remote's D-pad events are sent directly to the web app
-        webView.requestFocus();
+        // Ensure the view has focus for remote control interaction
+        geckoView.requestFocus();
     }
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
+        // Handle back navigation in the browser if possible
+        // GeckoView back navigation is handled via the session
+        // For simplicity, we just exit or use a basic check
+        super.onBackPressed();
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // GeckoView handles D-pad events natively when focused.
+        // We only need to intercept if we want custom behavior.
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (geckoSession != null) {
+            // Optional: Pause video playback on background
         }
     }
 
-    // Pass D-pad controls to WebView if needed
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP ||
-            keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
-            keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
-            keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
-            keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
-            keyCode == KeyEvent.KEYCODE_ENTER) {
-            
-            // WebView handles these natively usually, but we can intercept if needed
-            return super.onKeyDown(keyCode, event);
+    protected void onDestroy() {
+        super.onDestroy();
+        if (geckoSession != null) {
+            geckoSession.close();
         }
-        return super.onKeyDown(keyCode, event);
     }
 }

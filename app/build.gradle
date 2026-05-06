@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.tuhin.youtubetv"
-        minSdk 17
+        minSdk 21
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -31,12 +31,22 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.12.0'
+            force 'androidx.core:core-ktx:1.12.0'
+        }
     }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
+    
+    // GeckoView (Version 115 is the last to support API 21+)
+    implementation "org.mozilla.geckoview:geckoview:115.0.20230726201356"
 }
