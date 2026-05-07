@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
     private android.widget.TextView errorMessage;
     private android.widget.Button retryButton;
     private android.widget.ProgressBar loadingSpinner;
+    private android.widget.TextView loadingStatusText;
     private static GeckoRuntime sRuntime;
     private boolean mCanGoBack = false;
     private String mCurrentUrl = "";
@@ -41,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
         errorMessage = findViewById(R.id.error_message);
         retryButton = findViewById(R.id.retry_button);
         loadingSpinner = findViewById(R.id.loading_spinner);
+        loadingStatusText = findViewById(R.id.loading_status_text);
 
         retryButton.setOnClickListener(v -> {
             showLoadingOverlay();
@@ -80,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
         geckoSession.setProgressDelegate(new GeckoSession.ProgressDelegate() {
             @Override
             public void onPageStart(GeckoSession session, String url) {
-                showLoadingOverlay();
+                showLoadingOverlay("Connecting to YouTube TV...");
             }
 
             @Override
@@ -118,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
             public GeckoResult<PromptResponse> onTextPrompt(GeckoSession session, TextPrompt prompt) {
                 if (prompt.message != null) {
                     if (prompt.message.equals("APP_LOADING_START")) {
-                        runOnUiThread(() -> showLoadingOverlay());
+                        runOnUiThread(() -> showLoadingOverlay("Buffering video..."));
                         return GeckoResult.fromValue(prompt.confirm("ok"));
                     } else if (prompt.message.equals("APP_LOADING_STOP")) {
                         runOnUiThread(() -> hideLoadingOverlay());
@@ -236,11 +238,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showLoadingOverlay() {
+        showLoadingOverlay("Loading...");
+    }
+
+    private void showLoadingOverlay(String statusText) {
         if (loadingOverlay != null) {
             loadingOverlay.animate().cancel();
             loadingOverlay.setAlpha(1.0f);
             loadingOverlay.setVisibility(android.view.View.VISIBLE);
             loadingSpinner.setVisibility(android.view.View.VISIBLE);
+            if (loadingStatusText != null) {
+                loadingStatusText.setVisibility(android.view.View.VISIBLE);
+                loadingStatusText.setText(statusText);
+            }
             errorMessage.setVisibility(android.view.View.GONE);
             retryButton.setVisibility(android.view.View.GONE);
             
@@ -274,6 +284,9 @@ public class MainActivity extends AppCompatActivity {
             loadingOverlay.setAlpha(1.0f);
             loadingOverlay.setVisibility(android.view.View.VISIBLE);
             loadingSpinner.setVisibility(android.view.View.GONE);
+            if (loadingStatusText != null) {
+                loadingStatusText.setVisibility(android.view.View.GONE);
+            }
             errorMessage.setVisibility(android.view.View.VISIBLE);
             retryButton.setVisibility(android.view.View.VISIBLE);
         }
